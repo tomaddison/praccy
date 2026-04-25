@@ -1,6 +1,8 @@
-# 𝄞 Praccy
+# Praccy
 
 ## The practice companion that keeps teacher and student in sync.
+
+<img width="1400" height="735" alt="hero" src="https://github.com/user-attachments/assets/6d7e93a1-abd2-4f87-8bb8-3df414c4d303" />
 
 Praccy is an iOS app for music teachers and their students. Teachers assign tasks and goals; students see them on a "today" screen, practise, and tick them off. Teachers get an overview of progress, and students gamify their practice with daily streaks.
 
@@ -11,10 +13,10 @@ Praccy is an iOS app for music teachers and their students. Teachers assign task
 - **Today screen**: mascot-led student home with a progress ring, today's teacher-assigned tasks, and a collapsible done section
 - **Teacher roster**: students sorted active-before-pending; per-student detail with task and goal history
 - **Join-code linking**: six-character codes redeem against a CloudKit public record, then promote to a private CKShare for ongoing sync
-- **Practice streak**: flame pill in the header opens a celebration sheet; best-ever streak persists across sessions
+- **Practice streak**: flame pill in the header opens a celebration sheet
 - **On-device recordings**: `.m4a` capture per task, stored under `Documents/recordings/{taskID}/`, attached to records as `CKAsset`
 - **Accent-pattern metronome**: `AVAudioSourceNode`-driven, no queued-buffer drift, per-beat accent customisation
-- **Drone tuner**: FFT pitch detection with an optional reference drone; tunable A440
+- **Drone tuner**: tunable A440
 - **Onboarding**: eight-step flow with Sign in with Apple; replays cleanly via `-ForceOnboarding`
 
 ---
