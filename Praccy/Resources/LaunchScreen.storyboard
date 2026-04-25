@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24765" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24743"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" misplaced="YES" image="PraccyMascot" translatesAutoresizingMaskIntoConstraints="NO" id="mas-01">
+                                <rect key="frame" x="121" y="351" width="150" height="131.00000000000006"/>
+                            </imageView>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" misplaced="YES" image="PraccyWordmark" translatesAutoresizingMaskIntoConstraints="NO" id="wm-01">
+                                <rect key="frame" x="110" y="706" width="172" height="70"/>
+                                <color key="tintColor" red="0.10196078431372549" green="0.10196078431372549" blue="0.1803921568627451" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </imageView>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="safe-01"/>
+                        <color key="backgroundColor" name="LaunchBackground"/>
+                        <constraints>
+                            <constraint firstItem="wm-01" firstAttribute="centerX" secondItem="safe-01" secondAttribute="centerX" id="c5"/>
+                            <constraint firstItem="safe-01" firstAttribute="bottom" secondItem="wm-01" secondAttribute="bottom" id="c6"/>
+                            <constraint firstItem="wm-01" firstAttribute="width" constant="172" id="c7"/>
+                            <constraint firstItem="wm-01" firstAttribute="height" constant="70" id="c8"/>
+                            <constraint firstItem="mas-01" firstAttribute="centerX" secondItem="safe-01" secondAttribute="centerX" id="m-cx"/>
+                            <constraint firstItem="mas-01" firstAttribute="centerY" secondItem="safe-01" secondAttribute="centerY" constant="-32.5" id="m-cy"/>
+                            <constraint firstItem="mas-01" firstAttribute="height" constant="131" id="m-h"/>
+                            <constraint firstItem="mas-01" firstAttribute="width" constant="150" id="m-w"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="139.69465648854961" y="112.67605633802818"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="PraccyMascot" width="400" height="400"/>
+        <image name="PraccyWordmark" width="639" height="313"/>
+        <namedColor name="LaunchBackground">
+            <color red="0.94117647058823528" green="0.90980392156862744" blue="0.98039215686274506" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>
