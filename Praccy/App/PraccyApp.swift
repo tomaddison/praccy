@@ -120,12 +120,13 @@ struct PraccyApp: App {
 
     @MainActor
     private static func wipeAllModelData(in context: ModelContext) {
-        try? context.delete(model: PracticeTask.self)
-        try? context.delete(model: Recording.self)
-        try? context.delete(model: Goal.self)
-        try? context.delete(model: TeacherLink.self)
-        try? context.delete(model: StudentLink.self)
-        try? context.delete(model: UserSettings.self)
+        deleteAll(PracticeTask.self, in: context)
+        deleteAll(Recording.self, in: context)
+        deleteAll(Goal.self, in: context)
+        deleteAll(TeacherLink.self, in: context)
+        deleteAll(StudentLink.self, in: context)
+        deleteAll(UserSettings.self, in: context)
+        try? context.save()
     }
 
     @MainActor

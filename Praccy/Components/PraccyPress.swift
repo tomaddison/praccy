@@ -1,10 +1,5 @@
 import SwiftUI
 
-// Press styles:
-//   `.praccyPress(shadow:)`        depresses.
-//   `.praccyPressFlat`             dims.
-//   `.praccyWhiteCardPress(palette)` white-background cards.
-
 struct PraccyPressStyle: ButtonStyle {
     var shadowColor: Color? = nil
     var shadowOffset: CGFloat = 4
