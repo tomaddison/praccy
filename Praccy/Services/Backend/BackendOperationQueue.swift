@@ -1,9 +1,12 @@
 import Foundation
+import os.log
 
 /// Persistent actor-gated queue for outbound writes that must survive airplane-mode flights.
 /// Transient errors (`.network`, `.iCloudUnavailable`) leave the op in place; permanent errors
 /// drop it so a poison pill can't wedge the queue. Backed by JSON at `Documents/.praccy-queue.json`.
 actor BackendOperationQueue {
+
+    fileprivate static let log = Logger(subsystem: "app.praccy", category: "BackendOperationQueue")
 
     enum Operation: Sendable, Codable, Equatable {
         case markTaskComplete(remoteTaskID: String, completedAt: Date)
@@ -11,6 +14,7 @@ actor BackendOperationQueue {
         case assignTask(payload: AssignedTaskPayload, toStudentRemoteID: String)
         case assignGoal(payload: AssignedGoalPayload, toStudentRemoteID: String)
         case removeGoal(remoteGoalID: String)
+        case removeTask(remoteTaskID: String)
     }
 
     private let backend: any PraccyBackend
@@ -74,6 +78,10 @@ actor BackendOperationQueue {
             try await backend.markTaskComplete(remoteTaskID: remoteTaskID, completedAt: completedAt)
         case .uploadRecording(let path, let remoteTaskID, let localRecordingID):
             let url = URL(fileURLWithPath: path)
+            guard FileManager.default.fileExists(atPath: path) else {
+                Self.log.notice("Dropping upload: file missing for recording \(localRecordingID, privacy: .public).")
+                return
+            }
             let result = try await backend.uploadRecording(fileURL: url, forTaskRemoteID: remoteTaskID)
             if let handler = onRecordingUploaded {
                 await handler(localRecordingID, result)
@@ -84,6 +92,8 @@ actor BackendOperationQueue {
             try await backend.assignGoal(payload, toStudentRemoteID: studentRemoteID)
         case .removeGoal(let remoteGoalID):
             try await backend.removeGoal(remoteGoalID: remoteGoalID)
+        case .removeTask(let remoteTaskID):
+            try await backend.removeTask(remoteTaskID: remoteTaskID)
         }
     }
 

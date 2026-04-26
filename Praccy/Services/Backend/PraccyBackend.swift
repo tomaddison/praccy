@@ -33,6 +33,9 @@ protocol PraccyBackend: Sendable {
     /// Teacher-only. Pushes a new or updated assignment.
     func assignTask(_ payload: AssignedTaskPayload, toStudentRemoteID: String) async throws
 
+    /// Teacher-only. Idempotent. Recordings on the student side stay in history.
+    func removeTask(remoteTaskID: String) async throws
+
     /// Student-only. Idempotent and safe for the offline queue to retry.
     func markTaskComplete(remoteTaskID: String, completedAt: Date) async throws
 

@@ -121,6 +121,10 @@ actor MockBackend: PraccyBackend {
         assignedTasks[payload.remoteID] = payload
     }
 
+    func removeTask(remoteTaskID: String) async throws {
+        assignedTasks.removeValue(forKey: remoteTaskID)
+    }
+
     func markTaskComplete(remoteTaskID: String, completedAt: Date) async throws {
         guard let existing = assignedTasks[remoteTaskID] else { return }
         assignedTasks[remoteTaskID] = AssignedTaskPayload(

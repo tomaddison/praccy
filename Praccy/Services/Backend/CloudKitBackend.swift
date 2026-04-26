@@ -11,6 +11,9 @@ import Foundation
 ///
 /// Requires an iCloud container configured in entitlements + published public schema. Without it,
 /// `accountStatus()` returns `.couldNotDetermine` and every call throws `.iCloudUnavailable`.
+// `@unchecked Sendable`: the only stored state is `let container` (CKContainer is thread-safe)
+// and reads/writes go through thread-safe `UserDefaults`. Adding mutable instance state without
+// synchronisation would break this guarantee.
 final class CloudKitBackend: PraccyBackend, @unchecked Sendable {
 
     // MARK: Types
@@ -240,6 +243,19 @@ final class CloudKitBackend: PraccyBackend, @unchecked Sendable {
         try await upsert(record: record, in: privateDB)
     }
 
+    func removeTask(remoteTaskID: String) async throws {
+        try await requireAccount()
+        let zoneID = CKRecordZone.ID(zoneName: Self.rosterZoneName, ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(recordName: remoteTaskID, zoneID: zoneID)
+        do {
+            _ = try await privateDB.deleteRecord(withID: recordID)
+        } catch let error as CKError where error.code == .unknownItem {
+            return
+        } catch {
+            throw mapCKError(error)
+        }
+    }
+
     func markTaskComplete(remoteTaskID: String, completedAt: Date) async throws {
         try await requireAccount()
         let (record, database) = try await fetchAssignedRecord(
@@ -449,6 +465,11 @@ final class CloudKitBackend: PraccyBackend, @unchecked Sendable {
                 case .success(let share):
                     accepted = share
                 case .failure(let error):
+                    // `.alreadyShared` means this device already accepted this share.
+                    // The metadata's share is still valid for our purposes (recordID stable).
+                    if let ckError = error as? CKError, ckError.code == .alreadyShared {
+                        return
+                    }
                     operationError = error
                 }
             }
@@ -461,7 +482,9 @@ final class CloudKitBackend: PraccyBackend, @unchecked Sendable {
                     } else if let operationError {
                         continuation.resume(throwing: operationError)
                     } else {
-                        continuation.resume(throwing: PraccyBackendError.underlying("Share accept returned nothing."))
+                        // Idempotent re-accept: per-share returned `.alreadyShared`
+                        // and overall result was success. Use the metadata's share.
+                        continuation.resume(returning: metadata.share)
                     }
                 case .failure(let error):
                     continuation.resume(throwing: error)
