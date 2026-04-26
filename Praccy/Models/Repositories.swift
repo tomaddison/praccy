@@ -3,8 +3,10 @@ import SwiftData
 
 // MARK: - ModelContext query helpers
 //
-// `#Predicate` bodies must be a single expression: AND conditions together and
-// force-unwrap optionals only after an explicit `!= nil` guard.
+// `#Predicate` bodies must be a single expression: AND conditions together.
+// For optional relationships (e.g. `task.assignedTo?.remoteStudentID == id`),
+// use optional chaining — the `!= nil` + force-unwrap pattern silently never
+// matches at runtime even though it compiles.
 
 extension ModelContext {
     /// Tasks on `day`, undone first then `createdAt` ascending.
@@ -137,9 +139,7 @@ extension ModelContext {
     func assignedTaskCount(for student: StudentLink) -> Int {
         let id = student.remoteStudentID
         let predicate = #Predicate<PracticeTask> { task in
-            task.assignedTo != nil
-                && task.assignedTo!.remoteStudentID == id
-                && !task.isDone
+            task.assignedTo?.remoteStudentID == id && !task.isDone
         }
         return (try? fetchCount(FetchDescriptor<PracticeTask>(predicate: predicate))) ?? 0
     }
@@ -150,14 +150,11 @@ extension ModelContext {
         let predicate: Predicate<PracticeTask>
         if includeDone {
             predicate = #Predicate<PracticeTask> { task in
-                task.assignedTo != nil
-                    && task.assignedTo!.remoteStudentID == id
+                task.assignedTo?.remoteStudentID == id
             }
         } else {
             predicate = #Predicate<PracticeTask> { task in
-                task.assignedTo != nil
-                    && task.assignedTo!.remoteStudentID == id
-                    && !task.isDone
+                task.assignedTo?.remoteStudentID == id && !task.isDone
             }
         }
         let all = (try? fetch(FetchDescriptor<PracticeTask>(predicate: predicate))) ?? []
@@ -171,8 +168,7 @@ extension ModelContext {
     func goals(for student: StudentLink) -> [Goal] {
         let id = student.remoteStudentID
         let predicate = #Predicate<Goal> { goal in
-            goal.assignedTo != nil
-                && goal.assignedTo!.remoteStudentID == id
+            goal.assignedTo?.remoteStudentID == id
         }
         let all = (try? fetch(FetchDescriptor<Goal>(predicate: predicate))) ?? []
         return all.sorted { a, b in
