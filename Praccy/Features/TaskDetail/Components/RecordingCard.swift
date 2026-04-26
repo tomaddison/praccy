@@ -9,7 +9,9 @@ struct RecordingCard: View {
     let task: PracticeTask
     let palette: AccentPalette
     let modelContext: ModelContext
+    var role: UserRole = .student
 
+    @Environment(\.backendQueue) private var queue
     @State private var recorder = Recorder()
     @State private var playback: PlaybackController? = nil
     @State private var errorMessage: String? = nil
@@ -44,28 +46,10 @@ struct RecordingCard: View {
                 .id(mode)
 
             Group {
-                switch mode {
-                case .idle:
-                    IdleControls(
-                        palette: palette,
-                        denied: recorder.state == .denied,
-                        onStart: startRecording
-                    )
-                case .recording:
-                    RecordingControls(
-                        recorder: recorder,
-                        onStop: stopRecording
-                    )
-                case .playback:
-                    if let rec = latestRecording {
-                        PlaybackRow(
-                            recording: rec,
-                            palette: palette,
-                            playback: playbackController(for: rec),
-                            onRerecord: rerecord,
-                            onDelete: { showingDeleteConfirm = true }
-                        )
-                    }
+                if role == .teacher {
+                    teacherContent
+                } else {
+                    studentContent
                 }
             }
             .padding(.top, 18)
@@ -102,10 +86,53 @@ struct RecordingCard: View {
     }
 
     private var subtitle: String {
+        if role == .teacher {
+            return latestRecording == nil
+                ? "Student hasn't recorded yet."
+                : "Student's latest take."
+        }
         switch mode {
         case .idle: return "Tap to record your play."
         case .recording: return "Listening…"
         case .playback: return "Saved to your recordings."
+        }
+    }
+
+    @ViewBuilder
+    private var studentContent: some View {
+        switch mode {
+        case .idle:
+            IdleControls(
+                palette: palette,
+                denied: recorder.state == .denied,
+                onStart: startRecording
+            )
+        case .recording:
+            RecordingControls(
+                recorder: recorder,
+                onStop: stopRecording
+            )
+        case .playback:
+            if let rec = latestRecording {
+                PlaybackRow(
+                    recording: rec,
+                    palette: palette,
+                    playback: playbackController(for: rec),
+                    onRerecord: rerecord,
+                    onDelete: { showingDeleteConfirm = true }
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var teacherContent: some View {
+        if let rec = latestRecording {
+            PlaybackRow(
+                recording: rec,
+                palette: palette,
+                playback: playbackController(for: rec)
+            )
         }
     }
 
@@ -135,6 +162,18 @@ struct RecordingCard: View {
         modelContext.insert(rec)
         try? modelContext.save()
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        enqueueUpload(recordingID: rec.id, fileURL: result.url)
+    }
+
+    private func enqueueUpload(recordingID: UUID, fileURL: URL) {
+        guard let queue, let remoteID = task.remoteID else { return }
+        Task {
+            await queue.enqueue(.uploadRecording(
+                fileURLPath: fileURL.path,
+                remoteTaskID: remoteID,
+                localRecordingID: recordingID
+            ))
+        }
     }
 
     private func rerecord() {

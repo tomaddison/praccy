@@ -119,13 +119,7 @@ struct SettingsSheet: View {
     }
 }
 
-// MARK: - SettingsAlerts
-//
-// Chaining four `.alert` modifiers on the ScrollView directly blows past
-// SwiftUI's type checker budget. Extracting them into a single
-// `ViewModifier` keeps each alert's call site small enough to type-check
-// and localises the alert-binding boilerplate here.
-
+// Extracted to keep each .alert under SwiftUI's type-checker budget.
 private struct SettingsAlerts: ViewModifier {
     @Binding var pendingUnlinkTeacher: TeacherLink?
     @Binding var pendingUnlinkStudent: StudentLink?

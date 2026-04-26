@@ -1,28 +1,39 @@
 import SwiftUI
 import SwiftData
 
-/// Teacher-side goal composer. Pins the goal to `link` via `assignedTo` and
-/// enqueues the write through `BackendOperationQueue`.
+/// Teacher-side goal composer. `editing != nil` updates in place; `assignGoal` is the upsert path.
 struct AddGoalForStudentSheet: View {
     let link: StudentLink
     let palette: AccentPalette
+    let editing: Goal?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.backendQueue) private var backendQueue
     @Environment(\.dismiss) private var dismiss
 
-    @State private var title: String = ""
-    @State private var subtitle: String = ""
-    @State private var hasDueDate: Bool = false
-    @State private var dueDate: Date = Self.defaultDueDate
+    @State private var title: String
+    @State private var subtitle: String
+    @State private var hasDueDate: Bool
+    @State private var dueDate: Date
     @State private var isSaving: Bool = false
 
     @FocusState private var focusedField: Field?
 
-    private enum Field: Hashable { case title, subtitle }
+    fileprivate enum Field: Hashable { case title, subtitle }
 
     private static var defaultDueDate: Date {
         Calendar.current.date(byAdding: .month, value: 3, to: .now) ?? .now
+    }
+
+    init(link: StudentLink, palette: AccentPalette, editing: Goal? = nil) {
+        self.link = link
+        self.palette = palette
+        self.editing = editing
+
+        _title = State(initialValue: editing?.title ?? "")
+        _subtitle = State(initialValue: editing?.subtitle ?? "")
+        _hasDueDate = State(initialValue: editing?.dueDate != nil)
+        _dueDate = State(initialValue: editing?.dueDate ?? Self.defaultDueDate)
     }
 
     private var canSave: Bool {
@@ -31,7 +42,7 @@ struct AddGoalForStudentSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PraccySheetHeader(title: "New goal", palette: palette) {
+            PraccySheetHeader(title: editing == nil ? "New goal" : "Edit goal", palette: palette) {
                 guard !isSaving else { return }
                 dismiss()
             }
@@ -50,26 +61,22 @@ struct AddGoalForStudentSheet: View {
         .background(palette.bg.ignoresSafeArea())
     }
 
-    // MARK: - Cards
-
     private var goalCard: some View {
         SettingsSectionCard(eyebrow: "Goal for \(link.studentDisplayName)", palette: palette) {
             VStack(alignment: .leading, spacing: 12) {
-                textField(
+                PraccyTextField(
                     placeholder: "Title",
                     text: $title,
-                    field: .title,
-                    axis: .vertical,
-                    lineLimit: 1...3,
-                    submitLabel: .next,
-                    onSubmit: { focusedField = .subtitle }
+                    field: Field.title,
+                    focus: $focusedField,
+                    submitLabel: .done,
+                    onSubmit: { focusedField = nil }
                 )
-                textField(
+                PraccyTextField(
                     placeholder: "Why it matters (optional)",
                     text: $subtitle,
-                    field: .subtitle,
-                    axis: .vertical,
-                    lineLimit: 1...3,
+                    field: Field.subtitle,
+                    focus: $focusedField,
                     submitLabel: .done,
                     onSubmit: { focusedField = nil }
                 )
@@ -129,40 +136,6 @@ struct AddGoalForStudentSheet: View {
         .padding(.top, 4)
     }
 
-    // MARK: - Field
-
-    @ViewBuilder
-    private func textField(
-        placeholder: String,
-        text: Binding<String>,
-        field: Field,
-        axis: Axis,
-        lineLimit: ClosedRange<Int>,
-        submitLabel: SubmitLabel,
-        onSubmit: @escaping () -> Void
-    ) -> some View {
-        TextField(placeholder, text: text, axis: axis)
-            .lineLimit(lineLimit)
-            .font(PraccyFont.task)
-            .tracking(-0.2)
-            .foregroundStyle(PraccyColor.ink)
-            .focused($focusedField, equals: field)
-            .submitLabel(submitLabel)
-            .onSubmit(onSubmit)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: PraccyRadius.buttonSmall)
-                    .fill(palette.surface.opacity(0.5))
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: PraccyRadius.buttonSmall)
-                    .strokeBorder(palette.accent.opacity(0.18), lineWidth: 1.5)
-            }
-    }
-
-    // MARK: - Save
-
     private func save() async {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedSubtitle = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -170,17 +143,26 @@ struct AddGoalForStudentSheet: View {
         focusedField = nil
         isSaving = true
 
-        let remoteID = UUID().uuidString
         let resolvedDueDate = hasDueDate ? Calendar.current.startOfDay(for: dueDate) : nil
 
-        let goal = Goal(
-            title: trimmedTitle,
-            subtitle: trimmedSubtitle,
-            dueDate: resolvedDueDate,
-            remoteID: remoteID,
-            assignedTo: link
-        )
-        modelContext.insert(goal)
+        let remoteID: String
+        if let existing = editing {
+            existing.title = trimmedTitle
+            existing.subtitle = trimmedSubtitle
+            existing.dueDate = resolvedDueDate
+            remoteID = existing.remoteID ?? UUID().uuidString
+            existing.remoteID = remoteID
+        } else {
+            remoteID = UUID().uuidString
+            let goal = Goal(
+                title: trimmedTitle,
+                subtitle: trimmedSubtitle,
+                dueDate: resolvedDueDate,
+                remoteID: remoteID,
+                assignedTo: link
+            )
+            modelContext.insert(goal)
+        }
         try? modelContext.save()
 
         let payload = AssignedGoalPayload(
@@ -189,8 +171,8 @@ struct AddGoalForStudentSheet: View {
             title: trimmedTitle,
             subtitle: trimmedSubtitle,
             dueDate: resolvedDueDate,
-            isDone: false,
-            completedAt: nil
+            isDone: editing?.isDone ?? false,
+            completedAt: editing?.completedAt
         )
         if let queue = backendQueue {
             await queue.enqueue(.assignGoal(payload: payload, toStudentRemoteID: link.remoteStudentID))

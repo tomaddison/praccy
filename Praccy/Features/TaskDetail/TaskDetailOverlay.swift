@@ -9,7 +9,15 @@ struct TaskDetailOverlay: View {
     let palette: AccentPalette
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.backendQueue) private var backendQueue
+    @Environment(\.dismiss) private var dismiss
     @Query private var matchingTasks: [PracticeTask]
+    @Query private var settingsRows: [UserSettings]
+
+    @State private var showingEditSheet: Bool = false
+    @State private var showingDeleteConfirm: Bool = false
+
+    private var role: UserRole { settingsRows.first?.role ?? .student }
 
     init(taskID: UUID, palette: AccentPalette) {
         self.taskID = taskID
@@ -71,23 +79,89 @@ struct TaskDetailOverlay: View {
                         StatsRow(task: task, palette: palette)
                             .padding(.top, 18)
 
-                        RecordingCard(
-                            task: task,
-                            palette: palette,
-                            modelContext: modelContext
-                        )
-                        .padding(.top, 20)
+                        if role == .student || !task.recordings.isEmpty {
+                            RecordingCard(
+                                task: task,
+                                palette: palette,
+                                modelContext: modelContext,
+                                role: role
+                            )
+                            .padding(.top, 20)
+                        }
+
+                        if role == .teacher && !task.isDone {
+                            teacherActions(for: task)
+                                .padding(.top, 24)
+                        }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 24)
                 }
-                .padding(.bottom, 170)
+                .padding(.bottom, role == .teacher ? 32 : 170)
             }
 
-            StickyMarkDone(task: task, palette: palette, modelContext: modelContext)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 12)
+            if role == .student {
+                StickyMarkDone(task: task, palette: palette, modelContext: modelContext)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+            }
         }
+        .sheet(isPresented: $showingEditSheet) {
+            if let link = task.assignedTo {
+                AssignTaskSheet(link: link, palette: palette, editing: task)
+            }
+        }
+        .alert(
+            "Delete task?",
+            isPresented: $showingDeleteConfirm,
+            actions: {
+                Button("Delete", role: .destructive) { deleteTask() }
+                Button("Cancel", role: .cancel) {}
+            },
+            message: { Text("This can't be undone. The student will lose access on their next sync.") }
+        )
+    }
+
+    @ViewBuilder
+    private func teacherActions(for task: PracticeTask) -> some View {
+        VStack(spacing: 10) {
+            Button {
+                showingEditSheet = true
+            } label: {
+                Text("Edit task")
+                    .font(PraccyFont.task)
+                    .tracking(-0.2)
+                    .foregroundStyle(palette.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.buttonLarge))
+            }
+            .buttonStyle(.praccyPress(shadow: palette.shadow.opacity(0.5)))
+
+            Button(role: .destructive) {
+                showingDeleteConfirm = true
+            } label: {
+                Text("Delete task")
+                    .font(PraccyFont.task)
+                    .tracking(-0.2)
+                    .foregroundStyle(PraccyColor.warning)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func deleteTask() {
+        guard let task else { return }
+        let remoteID = task.remoteID
+        modelContext.delete(task)
+        try? modelContext.save()
+        if let remoteID, let queue = backendQueue {
+            Task { await queue.enqueue(.removeTask(remoteTaskID: remoteID)) }
+        }
+        dismiss()
     }
 
     /// Race guard for a task deleted mid-view.
@@ -240,7 +314,8 @@ private struct StickyMarkDone: View {
         }
     }
 
-    /// Only tasks with a `remoteID` (teacher-assigned) sync back; local-only recordings stay on-device.
+    /// Recordings normally sync on save; the catch-up loop here covers anything captured offline.
+    /// Local-only tasks (no `remoteID`) stay fully on-device.
     private func enqueueRemoteCompletion() {
         guard let queue, let remoteID = task.remoteID else { return }
         let completedAt = task.completedAt ?? .now

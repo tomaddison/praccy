@@ -17,6 +17,8 @@ struct StudentDetailScreen: View {
     @State private var showAddGoal: Bool = false
     @State private var showAssignTask: Bool = false
     @State private var taskSelection: TaskSelection?
+    @State private var goalSelection: Goal?
+    @State private var goalPendingEdit: Goal?
     @State private var goalPendingRemoval: Goal?
     @State private var showUnlinkAlert: Bool = false
     @State private var unlinkError: String?
@@ -42,12 +44,15 @@ struct StudentDetailScreen: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 18)
-            .padding(.bottom, 40)
+            .padding(.bottom, 120)
         }
         .background(palette.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showAddGoal) {
             AddGoalForStudentSheet(link: link, palette: palette)
+        }
+        .sheet(item: $goalPendingEdit) { goal in
+            AddGoalForStudentSheet(link: link, palette: palette, editing: goal)
         }
         .sheet(isPresented: $showAssignTask) {
             AssignTaskSheet(link: link, palette: palette)
@@ -56,6 +61,27 @@ struct StudentDetailScreen: View {
             TaskDetailOverlay(taskID: selection.id, palette: palette)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $goalSelection) { goal in
+            GoalDetailSheet(
+                goal: goal,
+                palette: palette,
+                onSelectTask: { taskID in
+                    goalSelection = nil
+                    DispatchQueue.main.async { taskSelection = TaskSelection(id: taskID) }
+                },
+                onEdit: {
+                    goalSelection = nil
+                    DispatchQueue.main.async { goalPendingEdit = goal }
+                },
+                onDelete: {
+                    goalSelection = nil
+                    DispatchQueue.main.async { goalPendingRemoval = goal }
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(palette.bg)
         }
         .alert(
             "Remove goal?",
@@ -114,16 +140,12 @@ struct StudentDetailScreen: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(
                 title: "Goals",
-                ctaTitle: "Add goal",
+                ctaLabel: "Add goal",
                 onTap: { showAddGoal = true }
             )
 
             if goals.isEmpty {
-                sectionPlaceholder(
-                    copy: "No goals yet - add one to pin tasks to.",
-                    ctaTitle: "Add goal",
-                    onCTA: { showAddGoal = true }
-                )
+                sectionPlaceholder(copy: "No goals yet")
             } else {
                 VStack(spacing: 12) {
                     ForEach(goals) { goal in
@@ -135,56 +157,53 @@ struct StudentDetailScreen: View {
     }
 
     private func goalRow(_ goal: Goal) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                if goal.isDone {
-                    Circle().fill(palette.accent)
-                    PraccyIcon.view(for: .check, tint: palette.onAccent, size: 12)
-                } else {
-                    Circle().strokeBorder(palette.accent.opacity(0.5), lineWidth: 2)
+        Button {
+            goalSelection = goal
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    if goal.isDone {
+                        Circle().fill(palette.accent)
+                        PraccyIcon.view(for: .check, tint: palette.onAccent, size: 12)
+                    } else {
+                        Circle().strokeBorder(palette.accent.opacity(0.5), lineWidth: 2)
+                    }
                 }
-            }
-            .frame(width: 24, height: 24)
-            .padding(.top, 2)
+                .frame(width: 24, height: 24)
+                .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(goal.title)
-                    .font(PraccyFont.task)
-                    .tracking(-0.2)
-                    .foregroundStyle(PraccyColor.ink)
-                    .strikethrough(goal.isDone, color: PraccyColor.ink.opacity(0.5))
-                    .multilineTextAlignment(.leading)
-                if !goal.subtitle.isEmpty {
-                    Text(goal.subtitle)
-                        .font(PraccyFont.meta)
-                        .foregroundStyle(PraccyColor.ink60)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(goal.title)
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(PraccyColor.ink)
+                        .strikethrough(goal.isDone, color: PraccyColor.ink.opacity(0.5))
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                    if !goal.subtitle.isEmpty {
+                        Text(goal.subtitle)
+                            .font(PraccyFont.meta)
+                            .foregroundStyle(PraccyColor.ink60)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                    }
+                    HStack(spacing: 6) {
+                        PraccyIcon.view(for: .flag, tint: PraccyColor.ink45, size: 10)
+                        Text(goal.dueLabel)
+                            .font(PraccyFont.meta)
+                            .foregroundStyle(PraccyColor.ink60)
+                    }
                 }
-                HStack(spacing: 6) {
-                    PraccyIcon.view(for: .flag, tint: PraccyColor.ink45, size: 10)
-                    Text(goal.dueLabel)
-                        .font(PraccyFont.meta)
-                        .foregroundStyle(PraccyColor.ink60)
-                }
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 8)
-
-            Button {
-                goalPendingRemoval = goal
-            } label: {
-                PraccyIcon.view(for: .minus, tint: PraccyColor.ink60, size: 12)
-                    .padding(9)
-                    .background(Circle().strokeBorder(PraccyColor.ink10, lineWidth: 1.5))
+                PraccyIcon.view(for: .chevronRight, tint: PraccyColor.ink45, size: 12)
+                    .padding(.top, 4)
             }
-            .buttonStyle(.praccyPress(offset: 2))
-            .accessibilityLabel("Remove \(goal.title)")
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card))
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card))
-        .praccySolidShadow(color: palette.shadow.opacity(0.18), offset: 3)
+        .buttonStyle(.praccyWhiteCardPress(palette))
     }
 
     // MARK: - Tasks
@@ -193,16 +212,12 @@ struct StudentDetailScreen: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(
                 title: "Assigned tasks",
-                ctaTitle: "Assign task",
+                ctaLabel: "Assign task",
                 onTap: { showAssignTask = true }
             )
 
             if tasks.isEmpty {
-                sectionPlaceholder(
-                    copy: "No tasks yet. Assign one to get \(link.studentDisplayName) started.",
-                    ctaTitle: "Assign task",
-                    onCTA: { showAssignTask = true }
-                )
+                sectionPlaceholder(copy: "No tasks yet")
             } else {
                 VStack(spacing: 10) {
                     ForEach(openTasks) { task in
@@ -278,13 +293,9 @@ struct StudentDetailScreen: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card))
-            .overlay {
-                RoundedRectangle(cornerRadius: PraccyRadius.card)
-                    .strokeBorder(palette.accent.opacity(0.1), lineWidth: 1.5)
-            }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.praccyPress(offset: 2))
+        .buttonStyle(.praccyWhiteCardPress(palette))
     }
 
     // MARK: - Unlink
@@ -307,7 +318,7 @@ struct StudentDetailScreen: View {
 
     // MARK: - Section chrome
 
-    private func sectionHeader(title: String, ctaTitle: String, onTap: @escaping () -> Void) -> some View {
+    private func sectionHeader(title: String, ctaLabel: String, onTap: @escaping () -> Void) -> some View {
         HStack {
             Text(title)
                 .font(PraccyFont.section)
@@ -315,34 +326,28 @@ struct StudentDetailScreen: View {
                 .foregroundStyle(PraccyColor.ink)
             Spacer()
             Button(action: onTap) {
-                HStack(spacing: 5) {
-                    PraccyIcon.view(for: .plus, tint: palette.accent, size: 11)
-                    Text(ctaTitle)
-                        .font(PraccyFont.meta)
-                        .foregroundStyle(palette.accent)
+                ZStack {
+                    Circle().fill(palette.accent)
+                    PraccyIcon.view(for: .plus, tint: palette.onAccent, size: 14)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(palette.surface, in: RoundedRectangle(cornerRadius: PraccyRadius.chip))
+                .frame(width: 32, height: 32)
             }
-            .buttonStyle(.praccyPress(offset: 2))
+            .buttonStyle(.praccyPress(shadow: palette.shadow))
+            .accessibilityLabel(ctaLabel)
         }
     }
 
-    private func sectionPlaceholder(copy: String, ctaTitle: String, onCTA: @escaping () -> Void) -> some View {
-        VStack(spacing: 10) {
-            Text(copy)
-                .font(PraccyFont.meta)
-                .foregroundStyle(PraccyColor.ink60)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 16)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
-        .background(
-            RoundedRectangle(cornerRadius: PraccyRadius.card)
-                .strokeBorder(PraccyColor.ink10, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-        )
+    private func sectionPlaceholder(copy: String) -> some View {
+        Text(copy)
+            .font(PraccyFont.meta)
+            .foregroundStyle(PraccyColor.ink60)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 26)
+            .background(
+                RoundedRectangle(cornerRadius: PraccyRadius.card)
+                    .strokeBorder(PraccyColor.ink10, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            )
     }
 
     // MARK: - Actions

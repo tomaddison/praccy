@@ -239,12 +239,16 @@ private struct BeatRow: View {
             GeometryReader { geo in
                 let count = max(1, metronome.beats.count)
                 let slot = geo.size.width / CGFloat(count)
+                // Leave a little breathing room between dots so adjacent
+                // circles don't touch when the row is densely packed.
+                let dotSize = min(32, max(12, slot - 8))
                 ZStack(alignment: .topLeading) {
                     ForEach(metronome.beats.indices, id: \.self) { index in
                         BeatDot(
                             beat: metronome.beats[index],
                             isActive: metronome.isPlaying && metronome.currentBeatIndex == index,
-                            palette: palette
+                            palette: palette,
+                            size: dotSize
                         ) {
                             UISelectionFeedbackGenerator().selectionChanged()
                             metronome.toggleBeat(at: index)
@@ -254,6 +258,7 @@ private struct BeatRow: View {
                     }
                 }
                 .frame(width: geo.size.width, height: 44)
+                .animation(PraccyAnimation.bounce, value: count)
             }
             .frame(height: 44)
 
@@ -282,48 +287,41 @@ private struct BeatDot: View {
     let beat: MetronomeBeat
     let isActive: Bool
     let palette: AccentPalette
+    let size: CGFloat
     let onTap: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private func visibleSize(slot: CGFloat) -> CGFloat {
-        let cap: CGFloat = (beat == .down) ? 32 : 24
-        let frac: CGFloat = (beat == .down) ? 0.78 : 0.60
-        return max(10, min(cap, slot * frac))
-    }
-
     var body: some View {
-        Button(action: onTap) {
-            GeometryReader { geo in
-                let size = visibleSize(slot: geo.size.width)
-                Circle()
-                    .fill(beat == .down ? palette.accent : Color.white)
-                    .overlay {
-                        if beat == .up {
-                            Circle().strokeBorder(palette.accent.opacity(0.5), lineWidth: 2)
-                        }
-                    }
-                    .frame(width: size, height: size)
-                    .scaleEffect(activeScale)
-                    .opacity(activeOpacity)
-                    // Fast attack, soft settle: matches the staccato click.
-                    .animation(onBeatAnimation, value: isActive)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .contentShape(Rectangle())
+        Button {
+            withAnimation(PraccyAnimation.bounce) { onTap() }
+        } label: {
+            Circle()
+                .fill(beat == .down ? palette.accent : Color.white)
+                .overlay(
+                    Circle()
+                        .strokeBorder(palette.accent.opacity(0.5), lineWidth: 2)
+                        .opacity(beat == .up ? 1 : 0)
+                )
+                .frame(width: size, height: size)
+                .scaleEffect(scale, anchor: .center)
+                .opacity(reduceMotion && isActive ? 0.65 : 1)
+                .animation(activeAnimation, value: isActive)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.praccyPressFlat)
         .accessibilityLabel(beat == .down ? "Downbeat" : "Upbeat")
         .accessibilityHint("Tap to toggle")
     }
 
-    private var activeScale: CGFloat { isActive && !reduceMotion ? 1.25 : 1.0 }
-    /// Reduce-motion users don't get the scale pulse, so dim briefly
-    /// as the active-beat indicator instead.
-    private var activeOpacity: Double { isActive && reduceMotion ? 0.65 : 1.0 }
+    private var scale: CGFloat {
+        let base: CGFloat = beat == .down ? 1.0 : 0.75
+        return isActive && !reduceMotion ? base * 1.25 : base
+    }
 
-    /// `isActive == true` → fast rise; `isActive == false` → soft fall.
-    private var onBeatAnimation: Animation {
+    /// Reduce-motion uses a brief opacity pulse instead of a spring.
+    private var activeAnimation: Animation {
         if reduceMotion { return .easeOut(duration: 0.08) }
         return isActive ? PraccyAnimation.beatAttack : PraccyAnimation.beatSettle
     }
@@ -399,11 +397,13 @@ private struct PlayAndTapRow: View {
                         .foregroundStyle(palette.onAccent)
                 }
                 .padding(.vertical, 16)
+                .transaction { $0.animation = nil }
             }
             .frame(maxWidth: .infinity)
             .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(.praccyPress(shadow: palette.shadow))
+        .transaction { $0.animation = nil }
         .accessibilityLabel(metronome.isPlaying ? "Stop metronome" : "Start metronome")
     }
 }

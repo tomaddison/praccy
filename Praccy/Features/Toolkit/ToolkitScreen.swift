@@ -118,21 +118,23 @@ private struct ModePicker: View {
                     tint: isActive ? palette.onAccent : palette.accent,
                     size: 28
                 )
+                .transaction { $0.animation = nil }
                 Text(target.title)
                     .font(PraccyFont.task)
                     .tracking(-0.2)
                     .foregroundStyle(isActive ? palette.onAccent : PraccyColor.ink)
+                    .transaction { $0.animation = nil }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
             .background(
                 RoundedRectangle(cornerRadius: PraccyRadius.card)
                     .fill(isActive ? palette.accent : Color.white)
+                    .transaction { $0.animation = nil }
             )
             .contentShape(RoundedRectangle(cornerRadius: PraccyRadius.card))
         }
         .buttonStyle(.praccyPress(shadow: isActive ? palette.shadow : PraccyColor.ink.opacity(0.12)))
-        // Unscoped transaction-nil; value-scoped `.animation(nil)` lets the fill/foregroundStyle fade leak through.
         .transaction { $0.animation = nil }
         .accessibilityLabel(target.title)
         .accessibilityAddTraits(isActive ? .isSelected : [])

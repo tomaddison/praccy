@@ -128,7 +128,6 @@ struct StudentsScreen: View {
             Text(title)
                 .font(PraccyFont.meta)
                 .tracking(0.4)
-                .textCase(.uppercase)
                 .foregroundStyle(PraccyColor.ink60)
                 .padding(.horizontal, 4)
 
@@ -151,7 +150,7 @@ struct StudentsScreen: View {
                     activeTaskCount: count
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.praccyWhiteCardPress(palette))
         } else {
             StudentRosterRow(
                 link: link,
@@ -159,6 +158,7 @@ struct StudentsScreen: View {
                 activeTaskCount: count,
                 onCancelPending: { pendingCancel = link }
             )
+            .praccyWhiteCardShadow(palette)
         }
     }
 

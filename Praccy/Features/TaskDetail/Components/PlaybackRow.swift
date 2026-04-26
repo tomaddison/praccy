@@ -5,8 +5,8 @@ struct PlaybackRow: View {
     let recording: Recording
     let palette: AccentPalette
     @Bindable var playback: PlaybackController
-    let onRerecord: () -> Void
-    let onDelete: () -> Void
+    var onRerecord: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
 
     private static let pattern: [CGFloat] = [
         0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3, 0.7,
@@ -46,36 +46,40 @@ struct PlaybackRow: View {
             .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card - 8))
             .praccySolidShadow(color: PraccyColor.ink10, offset: 3)
 
-            Button(action: onRerecord) {
-                Text("Re-record")
-                    .font(PraccyFont.task)
-                    .tracking(-0.2)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: PraccyRadius.card - 8)
-                            .stroke(Color.white.opacity(0.6), lineWidth: 2)
-                    )
+            if let onRerecord {
+                Button(action: onRerecord) {
+                    Text("Re-record")
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: PraccyRadius.card - 8)
+                                .stroke(Color.white.opacity(0.6), lineWidth: 2)
+                        )
+                }
+                .buttonStyle(.praccyPress(offset: 2))
+                .accessibilityLabel("Re-record")
             }
-            .buttonStyle(.praccyPress(offset: 2))
-            .accessibilityLabel("Re-record")
 
-            Button(action: onDelete) {
-                Text("Delete recording")
-                    .font(PraccyFont.task)
-                    .tracking(-0.2)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: PraccyRadius.card - 8)
-                            .stroke(Color.white.opacity(0.6), lineWidth: 2)
-                    )
+            if let onDelete {
+                Button(action: onDelete) {
+                    Text("Delete recording")
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: PraccyRadius.card - 8)
+                                .stroke(Color.white.opacity(0.6), lineWidth: 2)
+                        )
+                }
+                .buttonStyle(.praccyPress(offset: 2))
+                .accessibilityLabel("Delete recording")
+                .accessibilityHint("Removes this take. Confirmation required.")
             }
-            .buttonStyle(.praccyPress(offset: 2))
-            .accessibilityLabel("Delete recording")
-            .accessibilityHint("Removes this take. Confirmation required.")
         }
     }
 

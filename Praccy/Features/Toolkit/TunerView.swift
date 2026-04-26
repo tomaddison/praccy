@@ -231,6 +231,7 @@ private struct PlayButton: View {
                         .foregroundStyle(palette.onAccent)
                 }
                 .padding(.vertical, 16)
+                .animation(nil, value: tuner.isPlaying)
             }
             .frame(maxWidth: .infinity)
             .fixedSize(horizontal: false, vertical: true)

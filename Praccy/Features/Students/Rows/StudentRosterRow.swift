@@ -41,7 +41,6 @@ struct StudentRosterRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card))
-        .praccySolidShadow(color: palette.shadow.opacity(0.22), offset: 3)
     }
 
     private var identityAccessibilityLabel: String {

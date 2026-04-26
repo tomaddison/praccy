@@ -1,31 +1,50 @@
 import SwiftUI
 import SwiftData
 
-/// Teacher-side task composer. Inserts locally for immediate feedback, then enqueues `assignTask`.
+/// Teacher-side task composer. `editing != nil` updates in place; `assignTask` is the upsert path.
 struct AssignTaskSheet: View {
     let link: StudentLink
     let palette: AccentPalette
+    let editing: PracticeTask?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.backendQueue) private var backendQueue
     @Environment(\.dismiss) private var dismiss
 
-    @State private var title: String = ""
-    @State private var detail: String = ""
-    @State private var teacherNote: String = ""
-    @State private var hasTarget: Bool = false
-    @State private var targetMinutes: Int = 15
-    @State private var hasDueDate: Bool = true
-    @State private var dueDate: Date = Calendar.current.startOfDay(for: .now)
-    @State private var selectedGoalID: UUID? = nil
+    @State private var title: String
+    @State private var detail: String
+    @State private var teacherNote: String
+    @State private var hasTarget: Bool
+    @State private var targetMinutes: Int
+    @State private var hasDueDate: Bool
+    @State private var dueDate: Date
+    @State private var selectedGoalID: UUID?
     @State private var isSaving: Bool = false
 
     @FocusState private var focusedField: Field?
 
-    private enum Field: Hashable { case title, detail, note }
+    fileprivate enum Field: Hashable { case title, detail, note }
 
+    init(link: StudentLink, palette: AccentPalette, editing: PracticeTask? = nil) {
+        self.link = link
+        self.palette = palette
+        self.editing = editing
+
+        _title = State(initialValue: editing?.title ?? "")
+        _detail = State(initialValue: editing?.detail ?? "")
+        _teacherNote = State(initialValue: editing?.teacherNote ?? "")
+        _hasTarget = State(initialValue: editing?.targetMinutes != nil)
+        _targetMinutes = State(initialValue: editing?.targetMinutes ?? 15)
+        _hasDueDate = State(initialValue: editing?.dueDate != nil || editing == nil)
+        _dueDate = State(initialValue: editing?.dueDate ?? Calendar.current.startOfDay(for: .now))
+        _selectedGoalID = State(initialValue: editing?.goal?.id)
+    }
+
+    /// Open goals plus whichever goal the task being edited is currently linked to (even if done),
+    /// so an existing link survives the round-trip through the picker.
     private var availableGoals: [Goal] {
-        modelContext.goals(for: link).filter { !$0.isDone }
+        let all = modelContext.goals(for: link)
+        return all.filter { !$0.isDone || $0.id == selectedGoalID }
     }
 
     private var canSave: Bool {
@@ -34,7 +53,7 @@ struct AssignTaskSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PraccySheetHeader(title: "Assign task", palette: palette) {
+            PraccySheetHeader(title: editing == nil ? "Assign task" : "Edit task", palette: palette) {
                 guard !isSaving else { return }
                 dismiss()
             }
@@ -63,19 +82,19 @@ struct AssignTaskSheet: View {
     private var taskCard: some View {
         SettingsSectionCard(eyebrow: "For \(link.studentDisplayName)", palette: palette) {
             VStack(alignment: .leading, spacing: 12) {
-                textField(
+                PraccyTextField(
                     placeholder: "Title",
                     text: $title,
-                    field: .title,
-                    lineLimit: 1...3,
-                    submitLabel: .next,
-                    onSubmit: { focusedField = .detail }
+                    field: Field.title,
+                    focus: $focusedField,
+                    submitLabel: .done,
+                    onSubmit: { focusedField = nil }
                 )
-                textField(
+                PraccyTextField(
                     placeholder: "What to practise (optional)",
                     text: $detail,
-                    field: .detail,
-                    lineLimit: 1...4,
+                    field: Field.detail,
+                    focus: $focusedField,
                     submitLabel: .done,
                     onSubmit: { focusedField = nil }
                 )
@@ -140,33 +159,48 @@ struct AssignTaskSheet: View {
     }
 
     private var goalCard: some View {
-        SettingsSectionCard(eyebrow: "Goal (optional)", palette: palette) {
-            HStack {
-                Text("Ladders up to")
-                    .font(PraccyFont.task)
-                    .tracking(-0.2)
-                    .foregroundStyle(PraccyColor.ink)
-                Spacer()
-                Picker("Ladders up to", selection: $selectedGoalID) {
-                    Text("None").tag(UUID?.none)
+        SettingsSectionCard(eyebrow: "Ladders up to (optional)", palette: palette) {
+            Menu {
+                Picker("Goal", selection: $selectedGoalID) {
+                    Text("No goal").tag(UUID?.none)
                     ForEach(availableGoals) { goal in
                         Text(goal.title).tag(UUID?.some(goal.id))
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .tint(palette.accent)
+            } label: {
+                HStack(spacing: 10) {
+                    Text(selectedGoalLabel)
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(selectedGoalID == nil ? PraccyColor.ink60 : PraccyColor.ink)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    PraccyIcon.view(for: .chevronRight, tint: palette.accent, size: 12)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: PraccyRadius.buttonSmall)
+                        .fill(PraccyColor.ink05)
+                )
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
+    }
+
+    private var selectedGoalLabel: String {
+        availableGoals.first { $0.id == selectedGoalID }?.title ?? "No goal"
     }
 
     private var teacherNoteCard: some View {
         SettingsSectionCard(eyebrow: "Teacher note (optional)", palette: palette) {
-            textField(
+            PraccyTextField(
                 placeholder: "Anything to call out?",
                 text: $teacherNote,
-                field: .note,
-                lineLimit: 1...4,
+                field: Field.note,
+                focus: $focusedField,
                 submitLabel: .done,
                 onSubmit: { focusedField = nil }
             )
@@ -177,7 +211,7 @@ struct AssignTaskSheet: View {
         Button {
             Task { await save() }
         } label: {
-            Text(isSaving ? "Assigning…" : "Assign")
+            Text(primaryButtonLabel)
                 .font(PraccyFont.task)
                 .tracking(-0.2)
                 .foregroundStyle(palette.onAccent)
@@ -193,39 +227,10 @@ struct AssignTaskSheet: View {
         .padding(.top, 4)
     }
 
-    // MARK: - Field
-
-    @ViewBuilder
-    private func textField(
-        placeholder: String,
-        text: Binding<String>,
-        field: Field,
-        lineLimit: ClosedRange<Int>,
-        submitLabel: SubmitLabel,
-        onSubmit: @escaping () -> Void
-    ) -> some View {
-        TextField(
-            "",
-            text: text,
-            prompt: Text(placeholder).foregroundStyle(PraccyColor.ink45),
-            axis: .vertical
-        )
-            .lineLimit(lineLimit)
-            .font(PraccyFont.task)
-            .tracking(-0.2)
-            .foregroundStyle(PraccyColor.ink)
-            .focused($focusedField, equals: field)
-            .submitLabel(submitLabel)
-            .onSubmit(onSubmit)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: PraccyRadius.buttonSmall)
-                    .fill(PraccyColor.ink05)
-            )
+    private var primaryButtonLabel: String {
+        if isSaving { return editing == nil ? "Assigning…" : "Saving…" }
+        return editing == nil ? "Assign" : "Save"
     }
-
-    // MARK: - Save
 
     private func save() async {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -236,22 +241,34 @@ struct AssignTaskSheet: View {
         isSaving = true
 
         let pickedGoal = availableGoals.first { $0.id == selectedGoalID }
-        let remoteID = UUID().uuidString
         let resolvedDue = hasDueDate ? Calendar.current.startOfDay(for: dueDate) : nil
         let resolvedTarget = hasTarget ? targetMinutes : nil
         let resolvedNote: String? = trimmedNote.isEmpty ? nil : trimmedNote
 
-        let task = PracticeTask(
-            title: trimmedTitle,
-            detail: trimmedDetail,
-            targetMinutes: resolvedTarget,
-            dueDate: resolvedDue,
-            teacherNote: resolvedNote,
-            goal: pickedGoal,
-            assignedTo: link,
-            remoteID: remoteID
-        )
-        modelContext.insert(task)
+        let remoteID: String
+        if let existing = editing {
+            existing.title = trimmedTitle
+            existing.detail = trimmedDetail
+            existing.targetMinutes = resolvedTarget
+            existing.dueDate = resolvedDue
+            existing.teacherNote = resolvedNote
+            existing.goal = pickedGoal
+            remoteID = existing.remoteID ?? UUID().uuidString
+            existing.remoteID = remoteID
+        } else {
+            remoteID = UUID().uuidString
+            let task = PracticeTask(
+                title: trimmedTitle,
+                detail: trimmedDetail,
+                targetMinutes: resolvedTarget,
+                dueDate: resolvedDue,
+                teacherNote: resolvedNote,
+                goal: pickedGoal,
+                assignedTo: link,
+                remoteID: remoteID
+            )
+            modelContext.insert(task)
+        }
         try? modelContext.save()
 
         let payload = AssignedTaskPayload(
@@ -264,8 +281,8 @@ struct AssignTaskSheet: View {
             goalRemoteID: pickedGoal?.remoteID,
             goalTitle: pickedGoal?.title,
             teacherNote: resolvedNote,
-            isDone: false,
-            completedAt: nil
+            isDone: editing?.isDone ?? false,
+            completedAt: editing?.completedAt
         )
         if let queue = backendQueue {
             await queue.enqueue(.assignTask(payload: payload, toStudentRemoteID: link.remoteStudentID))

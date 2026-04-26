@@ -32,7 +32,12 @@ struct AddStudentSheet: View {
                         placeholder
                     }
 
-                    primaryButton
+                    VStack(spacing: 12) {
+                        primaryButton
+                        if let code {
+                            shareButton(code: code.code)
+                        }
+                    }
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -73,7 +78,6 @@ struct AddStudentSheet: View {
                     RoundedRectangle(cornerRadius: PraccyRadius.card)
                         .fill(Color.white)
                 )
-                .praccySolidShadow(color: palette.shadow.opacity(0.25), offset: 4)
                 .accessibilityLabel("Code: \(code.code.map { String($0) }.joined(separator: " "))")
 
             Text("Valid for 24 hours.")
@@ -83,28 +87,30 @@ struct AddStudentSheet: View {
     }
 
     private func instructions(code: String) -> some View {
-        VStack(spacing: 12) {
-            Text("Ask your student to enter this code in Settings → Connect with a teacher.")
+        (Text("Ask your student to enter this code in Settings ")
+         + Text(Image(systemName: "chevron.right")).font(.footnote).baselineOffset(1)
+         + Text(" Connect with a teacher."))
+            .font(PraccyFont.task)
+            .tracking(-0.2)
+            .foregroundStyle(PraccyColor.ink)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 8)
+    }
+
+    private func shareButton(code: String) -> some View {
+        ShareLink(item: shareMessage(code: code)) {
+            Label("Share", systemImage: "square.and.arrow.up")
                 .font(PraccyFont.task)
                 .tracking(-0.2)
-                .foregroundStyle(PraccyColor.ink)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
-
-            ShareLink(item: shareMessage(code: code)) {
-                Label("Share", systemImage: "square.and.arrow.up")
-                    .font(PraccyFont.task)
-                    .tracking(-0.2)
-                    .foregroundStyle(palette.accent)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: PraccyRadius.buttonSmall)
-                            .strokeBorder(palette.accent, lineWidth: 1.5)
-                    )
-            }
-            .buttonStyle(.praccyPress(offset: 2))
+                .foregroundStyle(palette.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(
+                    Color.white,
+                    in: RoundedRectangle(cornerRadius: PraccyRadius.buttonLarge)
+                )
         }
+        .buttonStyle(.praccyWhiteCardPress(palette))
     }
 
     private var placeholder: some View {
@@ -132,7 +138,7 @@ struct AddStudentSheet: View {
     }
 
     private func shareMessage(code: String) -> String {
-        "Join my Praccy roster with code \(code). Open Praccy, go to Settings → Connect with a teacher, and enter it there."
+        "Join my Praccy roster with code \(code). Open Praccy, go to Settings > Connect with a teacher, and enter it there."
     }
 
     private func generate() async {

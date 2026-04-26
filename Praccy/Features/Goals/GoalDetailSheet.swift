@@ -1,12 +1,13 @@
 import SwiftUI
 import SwiftData
 
-/// Bottom sheet listing tasks linked to the goal. Tapping a task dismisses and hands off via
-/// `GoalsScreen`'s `onDismiss`.
+/// Read-only goal sheet for students; teachers also pass `onEdit`/`onDelete` to surface those actions.
 struct GoalDetailSheet: View {
     let goal: Goal
     let palette: AccentPalette
     let onSelectTask: (UUID) -> Void
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -14,12 +15,46 @@ struct GoalDetailSheet: View {
                 header
                 Divider().overlay(palette.accent.opacity(0.18))
                 tasksSection
+                if onEdit != nil || onDelete != nil {
+                    teacherActions
+                        .padding(.top, 8)
+                }
             }
             .padding(.horizontal, 22)
             .padding(.top, 28)
             .padding(.bottom, 28)
         }
         .background(palette.bg.ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private var teacherActions: some View {
+        VStack(spacing: 10) {
+            if let onEdit {
+                Button(action: onEdit) {
+                    Text("Edit goal")
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(palette.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.buttonLarge))
+                }
+                .buttonStyle(.praccyPress(shadow: palette.shadow.opacity(0.5)))
+            }
+            if let onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Text("Delete goal")
+                        .font(PraccyFont.task)
+                        .tracking(-0.2)
+                        .foregroundStyle(PraccyColor.warning)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - Header
@@ -114,13 +149,9 @@ private struct GoalTaskRow: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Color.white, in: RoundedRectangle(cornerRadius: PraccyRadius.card))
-            .overlay {
-                RoundedRectangle(cornerRadius: PraccyRadius.card)
-                    .strokeBorder(palette.accent.opacity(0.12), lineWidth: 1.5)
-            }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.praccyPress(offset: 2))
+        .buttonStyle(.praccyWhiteCardPress(palette))
         .accessibilityLabel("\(task.title), \(task.isDone ? "done" : "not done")")
         .accessibilityAddTraits(.isButton)
     }
