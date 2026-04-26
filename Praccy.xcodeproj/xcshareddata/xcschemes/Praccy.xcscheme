@@ -54,14 +54,10 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "-SeedStudent YES"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-SeedTeacher YES"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-UseCloudKitBackend YES"
+            argument = "-SeedTeacher YES"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
